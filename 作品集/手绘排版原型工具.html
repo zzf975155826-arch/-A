@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手绘排版原型工具 v5 · AI版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        #canvas { border: 2px dashed #ddd; cursor: crosshair; background: #fff; }
+        .layout-preview { border:1px solid #eee; border-radius:8px; padding:10px; background:white; width:100%; display:flex; justify-content:center; align-items:center; }
+        .layout-preview svg { max-width:100%; height:auto; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div class="container mx-auto px-4 py-6 max-w-7xl">
+    <header class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">🎨 手绘排版原型工具 v5 · AI版</h1>
+        <p class="text-gray-600">草图转线框原型 · 自定义尺寸/风格 · 输出 提示词/PNG/SVG/HTML</p>
+    </header>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- 左侧 -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-3">🔑 API设置</h2>
+                <div class="text-xs text-gray-500 mb-2">填入DeepSeek API Key，用结构特征做AI排版推理</div>
+                <div class="flex gap-2">
+                    <input type="password" id="apiKeyInput" placeholder="sk-..." class="flex-1 px-3 py-2 border rounded-lg text-sm">
+                    <button id="toggleKeyBtn" class="px-3 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300"><i class="fa fa-eye"></i></button>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">⚙️ 设置</h2>
+                <div class="space-y-3">
+                    <div><label class="block text-sm font-medium mb-1">画布尺寸</label>
+                        <select id="sizeSelect" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="16:9" selected>16:9 (PPT默认 1280×720)</option>
+                            <option value="4:3">4:3 (1024×768)</option>
+                            <option value="1920x1080">1920×1080 (网页端)</option>
+                            <option value="1440x900">1440×900 (网页端)</option>
+                            <option value="375x812">375×812 (移动端)</option>
+                            <option value="custom">自定义尺寸…</option>
+                        </select>
+                        <div id="customSizeBox" class="hidden flex gap-2 mt-2">
+                            <input type="number" id="customW" placeholder="宽" value="1280" class="w-1/2 px-2 py-1.5 border rounded-lg text-sm">
+                            <input type="number" id="customH" placeholder="高" value="720" class="w-1/2 px-2 py-1.5 border rounded-lg text-sm">
+                        </div>
+                    </div>
+                    <div><label class="block text-sm font-medium mb-1">输出风格</label>
+                        <select id="styleSelect" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="wireframe" selected>极简线框图</option>
+                            <option value="lowfi">低保真原型</option>
+                            <option value="colorful">彩色标注版</option>
+                            <option value="business">商务简约</option>
+                            <option value="tech">科技蓝科技感</option>
+                            <option value="fresh">清新文艺</option>
+                            <option value="dark">深色暗黑风</option>
+                            <option value="custom">自定义风格…</option>
+                        </select>
+                        <textarea id="customStyle" rows="2" placeholder="描述你的风格，例如：莫兰迪配色、圆角卡片、大量留白" class="hidden w-full px-3 py-2 border rounded-lg resize-none text-sm mt-2"></textarea>
+                    </div>
+                    <div><label class="block text-sm font-medium mb-1">额外要求</label>
+                        <textarea id="extraReq" rows="3" placeholder="例如：主色调蓝色，突出数据图表" class="w-full px-3 py-2 border rounded-lg resize-none"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">🛠️ 工具</h2>
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button id="uploadBtn" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"><i class="fa fa-upload"></i> 上传</button>
+                    <button id="clearBtn" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"><i class="fa fa-trash"></i> 清空</button>
+                </div>
+                <div class="mb-4"><label class="block text-sm font-medium mb-1">画笔</label><input type="range" id="brushSize" min="1" max="10" value="2" class="w-full"></div>
+                <div class="flex gap-2 mb-2">
+                    <button id="aiMatchBtn" class="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold"><i class="fa fa-magic"></i> AI分析</button>
+                    <button id="localMatchBtn" class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"><i class="fa fa-cogs"></i> 前端匹配</button>
+                </div>
+                <button id="nextLayoutBtn" class="w-full px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">换一个匹配结果</button>
+            </div>
+        </div>
+        <!-- 中间画布 -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">✏️ 绘制区域</h2>
+                <div class="flex justify-center"><canvas id="canvas" width="600" height="338"></canvas></div>
+                <p class="text-sm text-gray-500 mt-2 text-center">按住鼠标左键绘制草图线条</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">📝 AI提示词</h2>
+                <div id="promptResult" class="p-4 bg-gray-50 rounded-lg border min-h-[80px] whitespace-pre-wrap text-sm leading-relaxed">点击「AI分析」或「前端匹配」生成结果</div>
+                <button id="copyPromptBtn" class="mt-2 px-3 py-1.5 bg-gray-200 rounded hover:bg-gray-300 text-sm"><i class="fa fa-copy"></i> 复制提示词</button>
+            </div>
+        </div>
+        <!-- 右侧结果 -->
+        <div class="lg:col-span-1 space-y-6">
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">🖼️ 生成结果</h2>
+                <div id="resultContainer" class="flex flex-col items-center justify-center border-2 border-dashed rounded-lg min-h-[250px] bg-gray-50 p-4">
+                    <div id="resultWireframe" class="hidden layout-preview w-full"></div>
+                    <div id="resultPlaceholder" class="text-center text-gray-500"><i class="fa fa-th-large text-4xl mb-2"></i><p>生成的排版原型会显示在这里</p></div>
+                    <div id="aiLoading" class="hidden text-center text-purple-600"><i class="fa fa-spinner fa-pulse text-2xl mb-2"></i><p>AI正在分析你的草图结构...</p></div>
+                </div>
+                <div class="grid grid-cols-3 gap-2 mt-4">
+                    <button id="downloadImgBtn" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm" disabled><i class="fa fa-download"></i> PNG</button>
+                    <button id="downloadSvgBtn" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm" disabled><i class="fa fa-file-code-o"></i> SVG</button>
+                    <button id="downloadHtmlBtn" class="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm" disabled><i class="fa fa-code"></i> HTML</button>
+                </div>
+                <button id="copyHtmlBtn" class="w-full mt-2 px-3 py-1.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm disabled:opacity-50" disabled><i class="fa fa-clipboard"></i> 复制HTML代码</button>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h2 class="text-lg font-semibold mb-4">🔍 识别分析</h2>
+                <div id="layoutMatch" class="p-3 bg-gray-50 rounded-lg border text-sm min-h-[60px]">绘制后选择匹配方式</div>
+            </div>
+        </div>
+    </div>
+</div>
+<input type="file" id="fileInput" accept="image/*" class="hidden">
+
+<script>
+    // ====== 画布 ======
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    var isDrawing = false, lastX = 0, lastY = 0, brushSize = 2;
+
+    var sizeSelect = document.getElementById('sizeSelect');
+    var customSizeBox = document.getElementById('customSizeBox');
+    var customW = document.getElementById('customW');
+    var customH = document.getElementById('customH');
+    var styleSelect = document.getElementById('styleSelect');
+    var customStyle = document.getElementById('customStyle');
+    var extraReq = document.getElementById('extraReq');
+    var uploadBtn = document.getElementById('uploadBtn');
+    var clearBtn = document.getElementById('clearBtn');
+    var brushSizeInput = document.getElementById('brushSize');
+    var aiMatchBtn = document.getElementById('aiMatchBtn');
+    var localMatchBtn = document.getElementById('localMatchBtn');
+    var nextLayoutBtn = document.getElementById('nextLayoutBtn');
+    var promptResult = document.getElementById('promptResult');
+    var copyPromptBtn = document.getElementById('copyPromptBtn');
+    var resultWireframe = document.getElementById('resultWireframe');
+    var resultPlaceholder = document.getElementById('resultPlaceholder');
+    var aiLoading = document.getElementById('aiLoading');
+    var downloadImgBtn = document.getElementById('downloadImgBtn');
+    var downloadSvgBtn = document.getElementById('downloadSvgBtn');
+    var downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
+    var copyHtmlBtn = document.getElementById('copyHtmlBtn');
+    var layoutMatch = document.getElementById('layoutMatch');
+    var fileInput = document.getElementById('fileInput');
+    var apiKeyInput = document.getElementById('apiKeyInput');
+    var toggleKeyBtn = document.getElementById('toggleKeyBtn');
+
+    var currentScores = [], currentLayoutIndex = -1, currentFeat = null;
+
+    var keyVisible = false;
+    toggleKeyBtn.addEventListener('click', function() {
+        keyVisible = !keyVisible;
+        apiKeyInput.type = keyVisible ? 'text' : 'password';
+        toggleKeyBtn.innerHTML = keyVisible ? '<i class="fa fa-eye-slash"></i>' : '<i class="fa fa-eye"></i>';
+    });
+
+    brushSizeInput.addEventListener('input', function() { brushSize = parseInt(brushSizeInput.value); });
+
+    sizeSelect.addEventListener('change', function() {
+        customSizeBox.classList.toggle('hidden', sizeSelect.value !== 'custom');
+    });
+    styleSelect.addEventListener('change', function() {
+        customStyle.classList.toggle('hidden', styleSelect.value !== 'custom');
+    });
+
+    // 尺寸信息：返回 {label, w, h}
+    function getSizeInfo() {
+        var v = sizeSelect.value;
+        var map = {
+            '16:9': {label:'16:9', w:1280, h:720},
+            '4:3': {label:'4:3', w:1024, h:768},
+            '1920x1080': {label:'1920×1080', w:1920, h:1080},
+            '1440x900': {label:'1440×900', w:1440, h:900},
+            '375x812': {label:'375×812', w:375, h:812}
+        };
+        if (v === 'custom') {
+            var w = parseInt(customW.value) || 1280, h = parseInt(customH.value) || 720;
+            return {label: w + '×' + h, w: w, h: h};
+        }
+        return map[v] || map['16:9'];
+    }
+
+    // 风格描述
+    function getStyleDesc() {
+        var v = styleSelect.value;
+        var map = {
+            'wireframe': '',
+            'lowfi': '，低保真原型，浅灰色填充块',
+            'colorful': '，彩色标注版，重点区域黄色高亮',
+            'business': '，商务简约风格，深灰配色，专业稳重',
+            'tech': '，科技感风格，科技蓝主色调，霓虹描边，深色背景',
+            'fresh': '，清新文艺风格，莫兰迪柔和配色，大量留白',
+            'dark': '，深色暗黑风格，黑底白线，高对比'
+        };
+        if (v === 'custom') {
+            var t = customStyle.value.trim();
+            return t ? '，' + t : '';
+        }
+        return map[v] || '';
+    }
+    canvas.addEventListener('mousedown', function(e) { isDrawing=true; var r=canvas.getBoundingClientRect(); lastX=e.clientX-r.left; lastY=e.clientY-r.top; });
+    canvas.addEventListener('mousemove', function(e) {
+        if(!isDrawing) return;
+        var r=canvas.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+        ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(x,y);
+        ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='black'; ctx.lineWidth=brushSize;
+        ctx.stroke(); lastX=x; lastY=y;
+    });
+    canvas.addEventListener('mouseup', function(){isDrawing=false;});
+    canvas.addEventListener('mouseout', function(){isDrawing=false;});
+
+    uploadBtn.addEventListener('click',function(){fileInput.click();});
+    fileInput.addEventListener('change',function(e){
+        var f=e.target.files[0]; if(!f) return;
+        var r=new FileReader();
+        r.onload=function(ev){
+            var img=new Image();
+            img.onload=function(){
+                var s=Math.min(canvas.width/img.width,canvas.height/img.height);
+                var x=(canvas.width-img.width*s)/2, y=(canvas.height-img.height*s)/2;
+                ctx.fillStyle='white'; ctx.fillRect(0,0,canvas.width,canvas.height);
+                ctx.drawImage(img,x,y,img.width*s,img.height*s);
+            };
+            img.src=ev.target.result;
+        };
+        r.readAsDataURL(f);
+    });
+
+    clearBtn.addEventListener('click',function(){
+        ctx.fillStyle='white'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        resultWireframe.classList.add('hidden'); resultPlaceholder.classList.remove('hidden'); aiLoading.classList.add('hidden');
+        downloadImgBtn.disabled=true; downloadSvgBtn.disabled=true; downloadHtmlBtn.disabled=true; copyHtmlBtn.disabled=true;
+        layoutMatch.textContent='绘制后选择匹配方式';
+        promptResult.textContent='点击「AI分析」或「前端匹配」生成结果';
+        currentScores=[]; currentLayoutIndex=-1;
+    });
+
+    // ====== 30种布局模板 ======
+    var layouts = [
+        {name:'左图右文', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="155" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="170" y="28" width="160" height="20" fill="#eee"/><rect x="170" y="55" width="160" height="10" fill="#eee"/><rect x="170" y="72" width="160" height="10" fill="#eee"/><rect x="170" y="89" width="160" height="10" fill="#eee"/><rect x="170" y="115" width="75" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="250" y="115" width="75" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，左图右文布局，左侧大图+右侧文字及下方两个卡片，顶部导航，极简黑白线稿，适合产品介绍PPT'},
+        {name:'左文右图', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="160" height="20" fill="#eee"/><rect x="10" y="55" width="160" height="10" fill="#eee"/><rect x="10" y="72" width="160" height="10" fill="#eee"/><rect x="10" y="89" width="160" height="10" fill="#eee"/><rect x="10" y="115" width="75" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="90" y="115" width="75" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="175" y="28" width="155" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，左文右图布局，左侧文字+两个小卡片，右侧大图，顶部导航，极简黑白线稿，适合案例展示PPT'},
+        {name:'左右等分', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="162" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="176" y="28" width="154" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，左右等分布局，两栏等宽分割，顶部导航，极简黑白线稿，适合对比展示页'},
+        {name:'左窄右宽(目录)', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="68" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="82" y="28" width="248" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，左窄右宽目录布局，侧边栏导航+主内容区，极简黑白线稿，适合目录页'},
+        {name:'左宽右窄(仪表盘)', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="248" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="262" y="28" width="68" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，左宽右窄布局，主内容+右侧窄边栏，极简黑白线稿，适合仪表盘'},
+        {name:'三栏均等', type:'leftright', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="107" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="121" y="28" width="107" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="232" y="28" width="98" height="167" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，三栏均分布局，三等宽内容栏，极简黑白线稿，适合并列展示'},
+        {name:'上标题下内容', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="25" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="10" y="50" width="320" height="145" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，上标题下内容布局，顶部通栏标题+主内容区，极简黑白线稿，适合章节页'},
+        {name:'上内容下标题', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="145" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="170" width="320" height="25" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，上内容下标题布局，上方主内容+底部通栏，极简黑白线稿，适合图片展示'},
+        {name:'上下均等两栏', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="85" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="120" width="320" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，上下均等两栏，上下两等大区块，极简黑白线稿，适合对比展示'},
+        {name:'上下三等分', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="91" width="320" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="154" width="320" height="41" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，上下三等分，三等分区块，极简黑白线稿，适合三步流程'},
+        {name:'上大图下卡片', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="95" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="133" width="102" height="62" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="118" y="133" width="102" height="62" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="226" y="133" width="104" height="62" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，上大图下卡片，上方Banner+底部三卡片，极简黑白线稿，适合首页'},
+        {name:'拦腰式', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="35" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="10" y="73" width="320" height="55" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="10" y="138" width="320" height="57" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，拦腰式布局，中部色块分隔上下，极简黑白线稿，适合重点内容页'},
+        {name:'轮播焦点图', type:'topbottom', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="140" stroke="#333" stroke-width="1.5" fill="#fff"/><polyline points="20,98 10,108 20,118" fill="none" stroke="#333" stroke-width="2"/><polyline points="320,98 330,108 320,118" fill="none" stroke="#333" stroke-width="2"/><circle cx="155" cy="180" r="3" fill="#ddd"/><circle cx="170" cy="180" r="3" fill="#333"/><circle cx="185" cy="180" r="3" fill="#ddd"/><rect x="10" y="188" width="320" height="12" fill="#eee"/></svg>',
+        prompt:'UI线框图，轮播图布局，大幅Banner+左右箭头+底部指示器，极简黑白线稿，适合首页Banner'},
+        {name:'2x2矩阵', type:'grid', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="162" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="176" y="28" width="154" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="115" width="162" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="176" y="115" width="154" height="80" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，2x2矩阵，四个均匀卡片，极简黑白线稿，适合四象限展示'},
+        {name:'3x3九宫格', type:'grid', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="105" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="119" y="28" width="105" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="228" y="28" width="102" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="90" width="105" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="119" y="90" width="105" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="228" y="90" width="102" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="152" width="105" height="43" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="119" y="152" width="105" height="43" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="228" y="152" width="102" height="43" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，3x3九宫格，九个均匀卡片，极简黑白线稿，适合功能入口'},
+        {name:'4x2矩阵', type:'grid', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="77" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="92" y="28" width="77" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="174" y="28" width="77" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="256" y="28" width="74" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="110" width="77" height="85" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="92" y="110" width="77" height="85" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="174" y="110" width="77" height="85" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="256" y="110" width="74" height="85" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，4x2矩阵，二行四列八个卡片，极简黑白线稿，适合产品列表'},
+        {name:'错落瀑布流', type:'grid', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="105" height="65" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="119" y="28" width="105" height="45" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="228" y="28" width="102" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="100" width="105" height="75" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="119" y="85" width="105" height="70" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="228" y="115" width="102" height="70" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，错落瀑布流，高度错落排列卡片，极简黑白线稿，适合作品墙'},
+        {name:'封面页居中', type:'center', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="50" y="55" width="240" height="40" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="90" y="110" width="160" height="15" fill="#eee"/><rect x="120" y="140" width="100" height="30" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/><circle cx="24" cy="12" r="1.5" fill="#666"/><circle cx="30" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，封面页居中布局，居中大标题+副标题+按钮，极简黑白线稿，适合PPT封面'},
+        {name:'致谢结束页', type:'center', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="15" y="80" width="310" height="40" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="100" y="140" width="140" height="12" fill="#eee"/></svg>',
+        prompt:'UI线框图，致谢页布局，居中大标题+底部小字，极简黑白线稿，适合PPT结束页'},
+        {name:'中心放射/环绕', type:'center', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="170" cy="105" r="35" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="90" cy="70" r="14" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="250" cy="70" r="14" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="80" cy="150" r="14" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="260" cy="150" r="14" stroke="#333" stroke-width="1.5" fill="#fff"/><line x1="135" y1="90" x2="150" y2="95" stroke="#ddd" stroke-width="1"/><line x1="190" y1="90" x2="175" y2="95" stroke="#ddd" stroke-width="1"/><line x1="130" y1="125" x2="148" y2="118" stroke="#ddd" stroke-width="1"/><line x1="210" y1="125" x2="192" y2="118" stroke="#ddd" stroke-width="1"/></svg>',
+        prompt:'UI线框图，中心放射布局，中心圆+四周小元素连系，极简黑白线稿，适合架构关系图'},
+        {name:'中心对称', type:'center', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="70" y="50" width="55" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="215" y="50" width="55" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="30" y="120" width="55" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="255" y="120" width="55" height="55" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="140" y="85" width="60" height="45" fill="#fff8c5" stroke="#333" stroke-width="1.5"/></svg>',
+        prompt:'UI线框图，中心对称布局，中心主元素+四角对称，极简黑白线稿，适合模块关系展示'},
+        {name:'时间线', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><line x1="20" y1="105" x2="320" y2="105" stroke="#333" stroke-width="2"/><circle cx="68" cy="105" r="5" fill="#333"/><circle cx="138" cy="105" r="5" fill="#333"/><circle cx="205" cy="105" r="5" fill="#333"/><circle cx="275" cy="105" r="5" fill="#333"/><rect x="52" y="48" width="38" height="50" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="122" y="115" width="38" height="50" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="192" y="48" width="38" height="50" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="260" y="115" width="38" height="50" stroke="#333" stroke-width="1.5" fill="#fff"/></svg>',
+        prompt:'UI线框图，时间线布局，水平线+上下交错节点卡片，极简黑白线稿，适合发展历程'},
+        {name:'阶梯式', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="25" y="35" width="65" height="35" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="105" y="75" width="65" height="35" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="185" y="115" width="65" height="35" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="265" y="155" width="65" height="35" stroke="#333" stroke-width="1.5" fill="#fff"/><line x1="90" y1="55" x2="105" y2="75" stroke="#f5a623" stroke-width="2" stroke-dasharray="4,2"/><line x1="170" y1="95" x2="185" y2="115" stroke="#f5a623" stroke-width="2" stroke-dasharray="4,2"/><line x1="250" y1="135" x2="265" y2="155" stroke="#f5a623" stroke-width="2" stroke-dasharray="4,2"/></svg>',
+        prompt:'UI线框图，阶梯式布局，向右下方递进排列+箭头连接，极简黑白线稿，适合步骤流程'},
+        {name:'流程图', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="35" y="45" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="140" y="45" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="245" y="45" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="35" y="120" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="140" y="120" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="245" y="120" width="55" height="28" stroke="#333" stroke-width="1.5" fill="#fff"/><line x1="90" y1="59" x2="140" y2="59" stroke="#333" stroke-width="1.5"/><polygon points="140,54 148,59 140,64" fill="#333"/><line x1="195" y1="59" x2="245" y2="59" stroke="#333" stroke-width="1.5"/><polygon points="245,54 253,59 245,64" fill="#333"/><line x1="62" y1="73" x2="62" y2="120" stroke="#333" stroke-width="1.5"/><polygon points="57,120 62,128 67,120" fill="#333"/><line x1="167" y1="73" x2="167" y2="120" stroke="#333" stroke-width="1.5"/><polygon points="162,120 167,128 172,120" fill="#333"/><line x1="272" y1="73" x2="272" y2="120" stroke="#333" stroke-width="1.5"/><polygon points="267,120 272,128 277,120" fill="#333"/></svg>',
+        prompt:'UI线框图，流程图布局，矩形节点+箭头连接线，极简黑白线稿，适合流程关系展示'},
+        {name:'目录页', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="15" y="30" width="100" height="165" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="125" y="30" width="200" height="20" fill="#eee"/><rect x="125" y="60" width="200" height="10" fill="#eee"/><rect x="125" y="80" width="200" height="10" fill="#eee"/><rect x="125" y="100" width="200" height="10" fill="#eee"/><rect x="125" y="120" width="200" height="10" fill="#eee"/><rect x="125" y="140" width="200" height="10" fill="#eee"/><rect x="125" y="160" width="200" height="10" fill="#eee"/><rect x="125" y="180" width="200" height="10" fill="#eee"/></svg>',
+        prompt:'UI线框图，目录页布局，左侧装饰+右侧多行目录，极简黑白线稿，适合目录议程页'},
+        {name:'数据图表页', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="6" fill="#ddd"/><rect x="10" y="28" width="320" height="18" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="10" y="53" width="195" height="142" stroke="#333" stroke-width="1.5" fill="#fff"/><polyline points="20,180 40,145 60,155 80,110 100,125 120,80 140,95 160,65 180,75" fill="none" stroke="#333" stroke-width="1.5"/><rect x="212" y="53" width="118" height="40" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="212" y="100" width="118" height="40" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="212" y="147" width="118" height="48" stroke="#333" stroke-width="1.5" fill="#fff"/><circle cx="18" cy="12" r="1.5" fill="#666"/></svg>',
+        prompt:'UI线框图，数据图表页布局，大折线图+数据卡片，极简黑白线稿，适合数据汇报'},
+        {name:'图文混排杂志', type:'special', svg:'<svg width="340" height="210"><rect x="5" y="5" width="330" height="200" rx="3" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="10" y="15" width="320" height="25" fill="#fff8c5" stroke="#333" stroke-width="1.5"/><rect x="10" y="48" width="100" height="147" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="115" y="48" width="115" height="12" fill="#eee"/><rect x="115" y="68" width="115" height="12" fill="#eee"/><rect x="115" y="88" width="115" height="12" fill="#eee"/><rect x="115" y="108" width="115" height="12" fill="#eee"/><rect x="115" y="128" width="115" height="12" fill="#eee"/><rect x="115" y="148" width="115" height="12" fill="#eee"/><rect x="115" y="168" width="115" height="27" fill="#eee"/><rect x="235" y="48" width="95" height="70" stroke="#333" stroke-width="1.5" fill="#fff"/><rect x="235" y="128" width="95" height="67" stroke="#333" stroke-width="1.5" fill="#fff"/></svg>',
+        prompt:'UI线框图，杂志式图文混排，大标题+左图右文+右侧边栏，极简黑白线稿，适合阅读类页面'}
+    ];
+
+    // ====== 前端特征提取 ======
+    function extractFeatures() {
+        var w=canvas.width, h=canvas.height;
+        var d=ctx.getImageData(0,0,w,h).data;
+        var g=[[0,0,0],[0,0,0],[0,0,0]], dark=0, step=3, total=0;
+        for(var y=0;y<h;y+=step) for(var x=0;x<w;x+=step) {
+            var idx=(y*w+x)*4;
+            if(d[idx]<200){dark++; g[Math.min(2,Math.floor(y/(h/3)))][Math.min(2,Math.floor(x/(w/3)))]++;}
+            total++;
+        }
+        var sg=g[0][0]+g[0][1]+g[0][2]+g[1][0]+g[1][1]+g[1][2]+g[2][0]+g[2][1]+g[2][2];
+        var feat={
+            leftCover:sg?(g[0][0]+g[1][0]+g[2][0])/sg:0,
+            centerCover:sg?(g[0][1]+g[1][1]+g[2][1])/sg:0,
+            rightCover:sg?(g[0][2]+g[1][2]+g[2][2])/sg:0,
+            topCover:sg?(g[0][0]+g[0][1]+g[0][2])/sg:0,
+            midCover:sg?(g[1][0]+g[1][1]+g[1][2])/sg:0,
+            bottomCover:sg?(g[2][0]+g[2][1]+g[2][2])/sg:0,
+            areaDensity:total?dark/total:0, rectCount:0, dir:'center',
+            hasCircle:false, edgeDensity:sg?(g[0][0]+g[0][2]+g[2][0]+g[2][2])/sg:0
+        };
+        var lr=Math.abs(feat.leftCover-feat.rightCover), tb=Math.abs(feat.topCover-feat.bottomCover);
+        if(lr<0.15&&tb<0.15&&feat.leftCover>0.15) feat.dir='grid';
+        else if((feat.leftCover>0.4||feat.rightCover>0.4)&&feat.centerCover<0.4) feat.dir='leftright';
+        else if((feat.topCover>0.4||feat.bottomCover>0.4)&&feat.midCover<0.4) feat.dir='topbottom';
+        else feat.dir='center';
+        feat.rectCount=Math.max(0,Math.round(feat.areaDensity*5));
+        return feat;
+    }
+
+    function scoreLayout(L, f){
+        var s=0;
+        if(L.type===f.dir)s+=30;
+        if(f.dir==='leftright')s+=(f.leftCover+f.rightCover)*25;
+        else if(f.dir==='topbottom')s+=(f.topCover+f.bottomCover)*25;
+        else if(f.dir==='center')s+=f.centerCover*25;
+        else if(f.dir==='grid')s+=f.edgeDensity*25;
+        var sr=(L.svg.match(/<rect/g)||[]).length, rd=Math.abs(sr-f.rectCount);
+        if(rd<=2)s+=15;else if(rd<=5)s+=8;
+        if(f.hasCircle&&L.svg.indexOf('circle')>-1)s+=15;
+        return s;
+    }
+
+    function localMatch(){
+        var f=extractFeatures();
+        var scored=layouts.map(function(L,i){return{idx:i,score:scoreLayout(L,f)};});
+        scored.sort(function(a,b){return b.score-a.score;});
+        currentScores=scored; currentLayoutIndex=0; currentFeat=f;
+        return {layout:layouts[scored[0].idx],feat:f,score:scored[0].score};
+    }
+
+    function showResult(layout, feat, mode){
+        var extra=extraReq.value.trim(), sz=getSizeInfo();
+        var p=layout.prompt;
+        p+=getStyleDesc();
+        if(extra)p+='，'+extra;
+        p+='，画布尺寸：'+sz.label+'（'+sz.w+'×'+sz.h+'px）';
+
+        resultPlaceholder.classList.add('hidden'); aiLoading.classList.add('hidden');
+        resultWireframe.classList.remove('hidden');
+        resultWireframe.innerHTML=layout.svg;
+        promptResult.textContent=p;
+        downloadImgBtn.disabled=false; downloadSvgBtn.disabled=false; downloadHtmlBtn.disabled=false; copyHtmlBtn.disabled=false;
+
+        var dt={leftright:'左右',topbottom:'上下',center:'中心',grid:'矩阵/网格',special:'特殊'};
+        var d=dt[layout.type]||layout.type;
+        var ei=feat?' | 密度:'+feat.areaDensity.toFixed(2)+' 左:'+(feat.leftCover*100).toFixed(0)+'%':'';
+        layoutMatch.innerHTML='<div class="font-semibold text-purple-600">['+mode+'] '+layout.name+' ('+d+')</div>'+(feat?'<div class="text-xs text-gray-500 mt-1">结构:'+d+ei+'</div>':'<div class="text-xs text-gray-500 mt-1">AI视觉分析结果</div>');
+    }
+
+    // ====== AI分析（本地特征 + DeepSeek文本推理） ======
+    function aiMatch(){
+        var apiKey=apiKeyInput.value.trim();
+        if(!apiKey){
+            layoutMatch.innerHTML='<div class="text-red-500">⚠️ 请先填写DeepSeek API Key</div>';
+            return;
+        }
+        // 先做本地像素特征提取
+        var f=extractFeatures();
+        var dirName={leftright:'左右结构',topbottom:'上下结构',center:'中心聚焦',grid:'网格矩阵'}[f.dir]||f.dir;
+        var featuresText=
+            '整体结构方向：'+dirName+'\n'+
+            '左侧内容占比：'+(f.leftCover*100).toFixed(0)+'%，'+
+            '中间：'+(f.centerCover*100).toFixed(0)+'%，'+
+            '右侧：'+(f.rightCover*100).toFixed(0)+'%\n'+
+            '上部占比：'+(f.topCover*100).toFixed(0)+'%，'+
+            '中部：'+(f.midCover*100).toFixed(0)+'%，'+
+            '下部：'+(f.bottomCover*100).toFixed(0)+'%\n'+
+            '四角内容占比：'+(f.edgeDensity*100).toFixed(0)+'%\n'+
+            '整体墨迹密度：'+(f.areaDensity*100).toFixed(1)+'%，估算区块数量约：'+f.rectCount+' 个';
+        var layoutsText=layouts.map(function(L){
+            var dt={leftright:'左右',topbottom:'上下',center:'中心',grid:'网格',special:'特殊'};
+            return '- '+L.name+'（'+(dt[L.type]||L.type)+'）';
+        }).join('\n');
+
+        aiLoading.classList.remove('hidden');
+        resultWireframe.classList.add('hidden'); resultPlaceholder.classList.add('hidden');
+        downloadImgBtn.disabled=true; downloadSvgBtn.disabled=true; downloadHtmlBtn.disabled=true; copyHtmlBtn.disabled=true;
+        layoutMatch.innerHTML='<div class="text-purple-600"><i class="fa fa-spinner fa-pulse"></i> 正在结合结构特征做AI推理...</div>';
+
+        fetch('/api/analyze', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({api_key:apiKey,features:featuresText,layouts:layoutsText})
+        })
+        .then(function(r){return r.json();})
+        .then(function(data){
+            aiLoading.classList.add('hidden');
+            if(data.error){
+                layoutMatch.innerHTML='<div class="text-red-500">错误: '+data.error+'</div>';
+                resultPlaceholder.classList.remove('hidden');
+                return;
+            }
+            var aiText=data.content;
+            var bestIdx=0,bestScore=-1;
+            for(var i=0;i<layouts.length;i++){
+                var s=0, name=layouts[i].name, type=layouts[i].type;
+                if(aiText.indexOf(name)>-1)s+=50;
+                if(aiText.indexOf(type)>-1)s+=20;
+                if(type==='leftright'&&(aiText.indexOf('左右')>-1||aiText.indexOf('分栏')>-1))s+=15;
+                if(type==='topbottom'&&(aiText.indexOf('上下')>-1||aiText.indexOf('横排')>-1))s+=15;
+                if(type==='center'&&(aiText.indexOf('中心')>-1||aiText.indexOf('居中')>-1))s+=15;
+                if(type==='grid'&&(aiText.indexOf('网格')>-1||aiText.indexOf('卡片')>-1))s+=15;
+                if(type==='special'&&(aiText.indexOf('流程')>-1||aiText.indexOf('时间线')>-1||aiText.indexOf('目录')>-1))s+=15;
+                if(s>bestScore){bestScore=s;bestIdx=i;}
+            }
+            currentScores=[];currentLayoutIndex=-1;
+            var selected=layouts[bestIdx];
+            var sz=getSizeInfo();
+            var fp=selected.prompt+getStyleDesc();
+            var extra=extraReq.value.trim();
+            if(extra)fp+='，'+extra;
+            fp+='，画布尺寸：'+sz.label+'（'+sz.w+'×'+sz.h+'px）。AI分析：'+aiText.substring(0,200);
+
+            resultPlaceholder.classList.add('hidden');
+            resultWireframe.classList.remove('hidden');
+            resultWireframe.innerHTML=selected.svg;
+            promptResult.textContent=fp;
+            downloadImgBtn.disabled=false;downloadSvgBtn.disabled=false;downloadHtmlBtn.disabled=false;copyHtmlBtn.disabled=false;
+            var dt={leftright:'左右',topbottom:'上下',center:'中心',grid:'矩阵/网格',special:'特殊'};
+            layoutMatch.innerHTML='<div class="font-semibold text-purple-600">[AI分析] '+selected.name+' ('+(dt[selected.type]||selected.type)+')</div><div class="text-xs text-gray-500 mt-1 whitespace-pre-wrap">'+aiText.substring(0,300)+'</div>';
+        })
+        .catch(function(err){
+            aiLoading.classList.add('hidden');resultPlaceholder.classList.remove('hidden');
+            layoutMatch.innerHTML='<div class="text-red-500">请求失败: '+err.message+'</div>';
+        });
+    }
+
+    aiMatchBtn.addEventListener('click',function(){aiMatch();});
+    localMatchBtn.addEventListener('click',function(){var r=localMatch();showResult(r.layout,r.feat,'前端匹配');});
+    nextLayoutBtn.addEventListener('click',function(){
+        if(currentScores.length>0){
+            currentLayoutIndex++;
+            if(currentLayoutIndex>=currentScores.length)currentLayoutIndex=0;
+            showResult(layouts[currentScores[currentLayoutIndex].idx],currentFeat,'备选#'+(currentLayoutIndex+1));
+        }else{layoutMatch.innerHTML='<div class="text-gray-500">请先点击「前端匹配」生成</div>';}
+    });
+    copyPromptBtn.addEventListener('click',async function(){await navigator.clipboard.writeText(promptResult.textContent);alert('已复制');});
+    downloadImgBtn.addEventListener('click',function(){
+        var s=resultWireframe.querySelector('svg');
+        var d=new XMLSerializer().serializeToString(s);
+        var sz=getSizeInfo();
+        var img=new Image();
+        img.onload=function(){
+            var c=document.createElement('canvas');c.width=sz.w;c.height=sz.h;
+            var cx=c.getContext('2d');
+            cx.fillStyle='#fff';cx.fillRect(0,0,sz.w,sz.h);
+            cx.drawImage(img,0,0,sz.w,sz.h);
+            var a=document.createElement('a');a.download='排版_'+Date.now()+'.png';a.href=c.toDataURL('image/png');a.click();
+        };
+        img.src='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(d)));
+    });
+    downloadSvgBtn.addEventListener('click',function(){
+        var s=resultWireframe.querySelector('svg');
+        var d=new XMLSerializer().serializeToString(s);
+        var b=new Blob([d],{type:'image/svg+xml'});
+        var a=document.createElement('a');a.download='排版_'+Date.now()+'.svg';a.href=URL.createObjectURL(b);a.click();
+    });
+
+    // ====== 生成HTML代码 ======
+    function buildHtml(){
+        var svgEl=resultWireframe.querySelector('svg');
+        var svg=svgEl?new XMLSerializer().serializeToString(svgEl):'';
+        var sz=getSizeInfo();
+        var prompt=promptResult.textContent;
+        // 让内部SVG填满容器
+        svg=svg.replace('<svg','<svg preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block"');
+        return '<!DOCTYPE html>\n'+
+            '<html lang="zh-CN">\n<head>\n'+
+            '<meta charset="UTF-8">\n'+
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'+
+            '<title>排版原型 '+sz.label+'</title>\n'+
+            '<!-- 设计提示词: '+prompt.replace(/-->/g,'- ->')+' -->\n'+
+            '<style>\n'+
+            '  * { margin:0; padding:0; box-sizing:border-box; }\n'+
+            '  body { background:#f4f4f5; display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:"Microsoft YaHei",sans-serif; }\n'+
+            '  .prototype { width:'+sz.w+'px; max-width:96vw; aspect-ratio:'+sz.w+' / '+sz.h+'; background:#fff; box-shadow:0 8px 40px rgba(0,0,0,.12); border-radius:8px; overflow:hidden; }\n'+
+            '</style>\n</head>\n<body>\n'+
+            '  <div class="prototype">\n    '+svg+'\n  </div>\n'+
+            '</body>\n</html>';
+    }
+
+    downloadHtmlBtn.addEventListener('click',function(){
+        var html=buildHtml();
+        var b=new Blob([html],{type:'text/html;charset=utf-8'});
+        var a=document.createElement('a');a.download='排版_'+Date.now()+'.html';a.href=URL.createObjectURL(b);a.click();
+    });
+    copyHtmlBtn.addEventListener('click',async function(){
+        try{await navigator.clipboard.writeText(buildHtml());alert('HTML代码已复制');}
+        catch(e){alert('复制失败：'+e.message);}
+    });
+    ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);
+</script>
+</body>
+</html>
