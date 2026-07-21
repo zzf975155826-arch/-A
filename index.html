@@ -123,6 +123,24 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
 }
 
 /* ===========================================
+   移动端修复（不影响桌面端）：
+   1) 部分移动浏览器会把 <video> 渲染在独立合成层，仅靠
+      visibility/opacity 无法真正隐藏，会“悬浮”在每一页上方——
+      移动端改用 display:none 彻底移出渲染树。
+   2) 非当前页的 .slide-bg 背景图在 display:none 时浏览器不会
+      提前下载，减少移动端首屏并发加载的图片流量，缓解背景图
+      加载慢/不显示的问题。
+   =========================================== */
+@media (max-width: 900px) {
+  .slide:not(.active) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+  }
+  .slide.active { display: block !important; }
+}
+
+/* ===========================================
    横向滑动过渡（叠加在 viewport-base.css 之上，不冲突）
    =========================================== */
 .slide {
@@ -531,7 +549,7 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
          2x2 网格：col1 x90 w840 | col2 x990 w840 ; row1 y170 h390 | row2 y590 h390
          ============================================================ -->
     <section class="slide" data-index="6">
-      <div class="slide-bg" style="background-image:url('./作品集/作品集页背景图.png');"></div>
+      <div class="slide-bg" style="background-image:url('./作品集/作品集页背景图.jpg');"></div>
       <div class="slide-inner">
         <div class="page-title">作品集</div>
 
@@ -601,7 +619,7 @@ const slideBgUrls = [
   './实习经历页-第二页-极氪/实习经历页第二页背景图.jpg',
   './实习经历页-第三页-网易/实习经历第三页背景图.jpg',
   './获奖证书页/获奖证书页背景图.jpg',
-  './作品集/作品集页背景图.png'
+  './作品集/作品集页背景图.jpg'
 ];
 
 class SlidePresentation {
@@ -652,6 +670,9 @@ class SlidePresentation {
       slide.classList.remove('active', 'prev');
       if (i === index) slide.classList.add('active');
       else if (i < index) slide.classList.add('prev');
+      if (i !== index) {
+        slide.querySelectorAll('video').forEach((v) => { v.pause(); });
+      }
     });
     this.dots.forEach((d, i) => d.classList.toggle('active', i === index));
     this.updateBlurBg(index);
